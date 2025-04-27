@@ -2,3 +2,4 @@ krakenex
 numpy
 requests
 python-dotenv
+flask
