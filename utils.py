@@ -1,62 +1,51 @@
-import requests
 import krakenex
 import os
+from dotenv import load_dotenv
 
-# Connexion Kraken API avec variables d'environnement
-api = krakenex.API()
-api.key = os.getenv('KRAKEN_API_KEY')
-api.secret = os.getenv('KRAKEN_API_SECRET')
+load_dotenv()
+
+k = krakenex.API()
+k.key = os.getenv('KRAKEN_API_KEY')
+k.secret = os.getenv('KRAKEN_API_SECRET')
 
 def get_balance(asset):
     try:
-        response = api.query_private('Balance')
-        if response['error']:
-            print(f"Erreur de récupération du solde : {response['error']}")
-            return 0
-        balance = response['result'].get(asset, 0)
-        return float(balance)
+        balance = k.query_private('Balance')
+        return float(balance['result'].get(asset, 0))
     except Exception as e:
-        print(f"Erreur de récupération du solde : {e}")
+        print(f"Erreur get_balance : {e}")
         return 0
 
-def get_prices(pair):
+def get_price(pair):
     try:
-        url = f"https://api.kraken.com/0/public/Ticker?pair={pair}"
-        response = requests.get(url)
-        data = response.json()
-        result = list(data['result'].values())[0]
-        price = float(result['c'][0])
-        return price
+        ticker = k.query_public('Ticker', {'pair': pair})
+        return float(ticker['result'][list(ticker['result'].keys())[0]]['c'][0])
     except Exception as e:
-        print(f"Erreur de récupération du prix : {e}")
-        return None
+        print(f"Erreur get_price : {e}")
+        return 0
 
-def get_indicators(pair):
+def buy_crypto(pair, volume):
     try:
-        # Dummy indicators pour l'exemple
-        rsi_value = 50  # Remplacer par du vrai RSI plus tard
-        moving_average = 200  # Idem pour la moyenne mobile
-        return {
-            'RSI': rsi_value,
-            'MovingAverage': moving_average
-        }
-    except Exception as e:
-        print(f"Erreur de calcul des indicateurs : {e}")
-        return None
-
-def execute_trade(pair, side, volume):
-    try:
-        order = {
+        response = k.query_private('AddOrder', {
             'pair': pair,
-            'type': side,
+            'type': 'buy',
             'ordertype': 'market',
-            'volume': str(volume)
-        }
-        response = api.query_private('AddOrder', order)
-
-        if response['error']:
-            print(f"Erreur de trading pour {pair} : {response['error']}")
-        else:
-            print(f"Trade exécuté pour {pair} : {side.upper()} {volume}")
+            'volume': volume,
+        })
+        return response
     except Exception as e:
-        print(f"Erreur lors de l'exécution du trade : {e}")
+        print(f"Erreur buy_crypto : {e}")
+        return None
+
+def sell_crypto(pair, volume):
+    try:
+        response = k.query_private('AddOrder', {
+            'pair': pair,
+            'type': 'sell',
+            'ordertype': 'market',
+            'volume': volume,
+        })
+        return response
+    except Exception as e:
+        print(f"Erreur sell_crypto : {e}")
+        return None
