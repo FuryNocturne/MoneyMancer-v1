@@ -9,31 +9,24 @@ def main():
     while True:
         for asset in assets:
             try:
-                # Récupère le solde en euros
-                balance_eur = get_balance()
+                rsi_value, moving_average = get_indicators(asset)
 
-                # Récupère les prix et historiques
-                current_price, historical_prices = get_prices(asset)
+                if rsi_value is None or moving_average is None:
+                    print(f"Erreur de traitement {asset} : Données invalides")
+                    continue
 
-                # Récupère les indicateurs RSI et Moving Average
-                rsi, ma = get_indicators(historical_prices, moving_average_window)
-
-                # Mise à jour du dashboard (facultatif mais conseillé)
-                update_dashboard(asset, current_price, rsi, ma)
-
-                # Stratégie d'achat
-                if rsi < rsi_buy_threshold and balance_eur >= investment_amount:
+                # Ici tu peux ajouter ta logique d'achat/vente selon RSI et MA
+                if rsi_value < rsi_buy_threshold:
                     buy_asset(asset, investment_amount)
+                else:
+                    sell_asset(asset)
 
-                # Stratégie de vente
-                sell_asset(asset, current_price, take_profit, stop_loss)
-
-                time.sleep(1)  # Petite pause entre les analyses de chaque asset
-
+                update_dashboard(asset, rsi_value, moving_average)
+                
             except Exception as e:
-                print(f"Erreur lors du traitement de {asset} : {e}")
+                print(f"Erreur globale pour {asset} : {e}")
 
-        time.sleep(60)  # Attendre 1 minute avant de refaire un tour complet
+        time.sleep(60)  # Attente 60 secondes avant de refaire une boucle
 
 if __name__ == "__main__":
     main()
