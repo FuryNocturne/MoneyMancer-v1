@@ -1,10 +1,17 @@
-def display_dashboard(positions, total_value):
-    print("\n🚀 --- MINI DASHBOARD MONEYMANCER --- 🚀")
-    for asset, data in positions.items():
-        if data['quantity'] > 0:
-            print(f"{asset} ➔ Achat à {data['buy_price']:.2f}€ ➔ Maintenant {data['current_price']:.2f}€ ➔ Variation : {data['variation']:.2f}%")
-        else:
-            print(f"{asset} ➔ Pas encore acheté.")
-    print(f"\n🧩 Total cryptos en position : {sum(1 for d in positions.values() if d['quantity'] > 0)}")
-    print(f"💎 Valeur actuelle estimée : {total_value:.2f}€")
-    print("🚀 --- Fin du Dashboard --- 🚀\n")
+# dashboard.py
+
+def update_dashboard(asset, price, rsi, ma):
+    """
+    Met à jour l'affichage du tableau de bord avec les données du marché.
+    
+    :param asset: Le nom de l'actif (ex: BTC/EUR)
+    :param price: Le prix actuel de l'actif
+    :param rsi: La valeur actuelle du RSI
+    :param ma: La valeur actuelle de la moyenne mobile
+    """
+    print("="*50)
+    print(f"Actif       : {asset}")
+    print(f"Prix actuel : {price:.2f} €")
+    print(f"RSI         : {rsi:.2f}")
+    print(f"Moyenne mob : {ma:.2f}")
+    print("="*50)
