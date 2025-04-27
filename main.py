@@ -1,29 +1,46 @@
-import time
 import os
-from utils import get_balance, get_price, buy_crypto, sell_crypto
-from backtest import simulate_backtest, print_backtest_summary
-from dotenv import load_dotenv
+import time
+from utils import get_balance, get_price, get_indicators, buy_crypto, sell_crypto
 
-load_dotenv()
+TRADING_PAIRS = ["XRP/EUR", "SOL/EUR", "ADA/EUR", "AVAX/EUR", "MATIC/EUR", "LINK/EUR", "BTC/EUR", "ETH/EUR"]
 
-cryptos = ['XXBTZEUR', 'XETHZEUR', 'XLINKZEUR', 'XXRPZEUR', 'MATICZEUR', 'ADA/EUR', 'SOL/EUR', 'AVAX/EUR']
-stop_loss_percent = 5
+STOP_LOSS_PERCENTAGE = 5  # 5% de perte max avant de vendre
+CHECK_INTERVAL = 60  # en secondes
 
-mode = os.getenv('MODE', 'live')
+def main():
+    print("MoneyMancer bot lancé !")
 
-if mode == "backtest":
-    print("Mode Backtest activé.")
-    results = simulate_backtest(cryptos, stop_loss_percent)
-    print_backtest_summary(results)
-
-elif mode == "live":
-    print("Mode Trading LIVE activé.")
     while True:
-        for pair in cryptos:
-            balance = get_balance(pair.split('Z')[0])  # Correction pour Kraken symboles
-            price = get_price(pair)
-            print(f"Balance {pair}: {balance} | Prix: {price}€")
-            time.sleep(2)
-        time.sleep(300)  # Attend 5 minutes entre chaque scan
-else:
-    print("Erreur: Mode inconnu.")
+        for pair in TRADING_PAIRS:
+            try:
+                asset, quote = pair.split("/")
+                balance = get_balance(asset)
+                price = get_price(pair)
+
+                if price is None:
+                    print(f"Erreur get_price pour {pair}")
+                    continue
+
+                print(f"--- {asset} ---")
+                print(f"Prix actuel : {price}")
+                print(f"Solde disponible : {balance}")
+
+                indicators = get_indicators(pair)
+
+                print(f"Indicateurs : {indicators}")
+
+                if indicators["RSI"] < 30:
+                    quantity_to_buy = 1
+                    buy_crypto(pair, quantity_to_buy)
+
+                if indicators["RSI"] > 70:
+                    if balance > 0:
+                        sell_crypto(pair, balance)
+
+            except Exception as e:
+                print(f"Erreur globale pour {pair} : {e}")
+
+        time.sleep(CHECK_INTERVAL)
+
+if __name__ == "__main__":
+    main()
