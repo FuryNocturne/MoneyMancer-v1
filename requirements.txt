@@ -1,5 +1,4 @@
-Flask
 python-dotenv
-krakenex
 requests
+krakenex
 numpy
