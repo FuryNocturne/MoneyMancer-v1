@@ -1,32 +1,52 @@
-from bot import buy_asset, sell_asset
-from config import assets, investment_amount, stop_loss, take_profit, rsi_buy_threshold, moving_average_window
-from dashboard import update_dashboard
-from utils import get_balance, get_prices, get_indicators
 import time
+from config import assets, investment_amount, stop_loss, take_profit, rsi_buy_threshold, moving_average_window
+from utils import get_balance, get_prices, get_indicators
+from bot import buy_asset, sell_asset
 
 def main():
     print("MoneyMancer bot lancé !")
+    
     while True:
-        for asset in assets:
-            try:
-                rsi_value, moving_average = get_indicators(asset)
+        prices = get_prices()
+        
+        if not prices:
+            print("Erreur de récupération des prix.")
+            time.sleep(60)
+            continue
 
-                if rsi_value is None or moving_average is None:
-                    print(f"Erreur de traitement {asset} : Données invalides")
+        for symbol in assets:
+            try:
+                price = prices.get(symbol)
+                if price is None:
+                    print(f"Prix introuvable pour {symbol}")
                     continue
 
-                # Ici tu peux ajouter ta logique d'achat/vente selon RSI et MA
-                if rsi_value < rsi_buy_threshold:
-                    buy_asset(asset, investment_amount)
-                else:
-                    sell_asset(asset)
+                balance = get_balance(symbol)
+                rsi_value, moving_average = get_indicators(symbol)
 
-                update_dashboard(asset, rsi_value, moving_average)
-                
+                if rsi_value is None or moving_average is None:
+                    print(f"Indicateurs non disponibles pour {symbol}")
+                    continue
+
+                quantity = investment_amount / price
+
+                if rsi_value < rsi_buy_threshold and balance == 0:
+                    print(f"Achat de {quantity:.6f} {symbol}")
+                    buy_asset(symbol, quantity)
+
+                elif balance > 0:
+                    entry_price = moving_average
+                    current_price = price
+                    pnl_percentage = (current_price - entry_price) / entry_price * 100
+
+                    if pnl_percentage <= -stop_loss or pnl_percentage >= take_profit:
+                        print(f"Vente de {balance:.6f} {symbol} avec PnL de {pnl_percentage:.2f}%")
+                        sell_asset(symbol, balance)
+
             except Exception as e:
-                print(f"Erreur globale pour {asset} : {e}")
+                print(f"Erreur de traitement {symbol} : {e}")
 
-        time.sleep(60)  # Attente 60 secondes avant de refaire une boucle
+        time.sleep(300)
 
 if __name__ == "__main__":
     main()
