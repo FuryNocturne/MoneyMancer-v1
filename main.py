@@ -1,45 +1,39 @@
-from config import assets, investment_amount, stop_loss, take_profit, rsi_buy_threshold, moving_average_window
 from bot import buy_asset, sell_asset
+from config import assets, investment_amount, stop_loss, take_profit, rsi_buy_threshold, moving_average_window
+from dashboard import update_dashboard
 from utils import get_balance, get_prices, get_indicators
-from dashboard import display_dashboard
 import time
 
 def main():
-    portfolio = {}
-    balance = get_balance()
-    print(f"Solde EUR : {balance:.2f} €")
-
+    print("MoneyMancer bot lancé !")
     while True:
-        prices = get_prices()
-        indicators = get_indicators()
+        for asset in assets:
+            try:
+                # Récupère le solde en euros
+                balance_eur = get_balance()
 
-        for asset, price in prices.items():
-            rsi = indicators[asset]['RSI']
-            ma = indicators[asset]['MA']
+                # Récupère les prix et historiques
+                current_price, historical_prices = get_prices(asset)
 
-            if asset not in portfolio and rsi < rsi_buy_threshold and price > ma:
-                quantity = investment_amount / price
-                success = buy_asset(asset, quantity)
-                if success:
-                    portfolio[asset] = {'buy_price': price, 'quantity': quantity}
-                    balance -= investment_amount
-                    print(f"Acheté {quantity:.6f} {asset} à {price:.2f} €")
+                # Récupère les indicateurs RSI et Moving Average
+                rsi, ma = get_indicators(historical_prices, moving_average_window)
 
-            if asset in portfolio:
-                bought_at = portfolio[asset]['buy_price']
-                quantity = portfolio[asset]['quantity']
-                variation = (price - bought_at) / bought_at
+                # Mise à jour du dashboard (facultatif mais conseillé)
+                update_dashboard(asset, current_price, rsi, ma)
 
-                if variation >= take_profit or variation <= -stop_loss:
-                    success = sell_asset(asset, quantity)
-                    if success:
-                        balance += quantity * price
-                        del portfolio[asset]
-                        print(f"Vendu {quantity:.6f} {asset} à {price:.2f} €")
+                # Stratégie d'achat
+                if rsi < rsi_buy_threshold and balance_eur >= investment_amount:
+                    buy_asset(asset, investment_amount)
 
-        display_dashboard(balance, portfolio, prices)
-        print("⏳ Attente 60 secondes avant prochain scan...")
-        time.sleep(60)
+                # Stratégie de vente
+                sell_asset(asset, current_price, take_profit, stop_loss)
+
+                time.sleep(1)  # Petite pause entre les analyses de chaque asset
+
+            except Exception as e:
+                print(f"Erreur lors du traitement de {asset} : {e}")
+
+        time.sleep(60)  # Attendre 1 minute avant de refaire un tour complet
 
 if __name__ == "__main__":
     main()
