@@ -1,28 +1,22 @@
-import random
-
-def calculate_moving_average(prices, window):
-    if len(prices) < window:
-        return sum(prices) / len(prices)
-    return sum(prices[-window:]) / window
-
-def should_buy(rsi, threshold):
-    return rsi < threshold
-
-def should_sell(current_price, buy_price, stop_loss, take_profit):
-    change_percentage = ((current_price - buy_price) / buy_price) * 100
-    return change_percentage <= stop_loss or change_percentage >= take_profit
+import requests
+import numpy as np
 
 def get_balance():
-    # Simulation d'une balance utilisateur (ex: solde Kraken)
-    return round(random.uniform(10, 100), 2)
+    url = "https://api.kraken.com/0/private/Balance"
+    response = requests.post(url)
+    return response.json()
 
 def get_prices(asset):
-    # Simulation d'un prix actuel
-    current_price = round(random.uniform(0.5, 100), 2)
-    historical_prices = [round(random.uniform(0.5, 100), 2) for _ in range(30)]
-    return current_price, historical_prices
+    url = f"https://api.kraken.com/0/public/Ticker?pair={asset}EUR"
+    response = requests.get(url)
+    data = response.json()
+    return float(data['result'][list(data['result'].keys())[0]]['c'][0])
 
-def get_indicators(historical_prices):
-    # Simulation d'un indicateur RSI
-    rsi = round(random.uniform(20, 80), 2)
-    return rsi
+def get_indicators(asset, prices):
+    moving_average_window = 5
+    if len(prices) < moving_average_window:
+        return None, None
+
+    moving_average = np.mean(prices[-moving_average_window:])
+    rsi = 50  # Valeur fictive pour l'instant
+    return moving_average, rsi
