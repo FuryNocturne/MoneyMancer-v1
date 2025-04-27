@@ -7,16 +7,9 @@ def main():
     print("MoneyMancer bot lancé !")
     
     while True:
-        prices = get_prices()
-        
-        if not prices:
-            print("Erreur de récupération des prix.")
-            time.sleep(60)
-            continue
-
         for symbol in assets:
             try:
-                price = prices.get(symbol)
+                price = get_prices(symbol)
                 if price is None:
                     print(f"Prix introuvable pour {symbol}")
                     continue
