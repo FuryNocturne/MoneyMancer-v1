@@ -1,6 +1,3 @@
-pandas
+krakenex
 requests
 python-dotenv
-krakenex
-ta
-schedule
