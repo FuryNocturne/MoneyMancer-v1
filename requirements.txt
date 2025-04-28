@@ -2,3 +2,4 @@ pykrakenapi
 pandas
 requests
 python-dotenv
+krakenex
