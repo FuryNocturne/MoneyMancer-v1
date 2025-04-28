@@ -1,87 +1,82 @@
 import os
 import time
-import krakenex
+from krakenex import API
+from pykrakenapi import KrakenAPI
 
-# Connexion API Kraken
-api = krakenex.API()
-api.load_key('')
-
+# Récupération sécurisée des clés API depuis les variables d'environnement
 api_key = os.getenv('KRAKEN_API_KEY')
-api_secret = os.getenv('KRAKEN_API_SECRET')
-api.key = api_key
-api.secret = api_secret
+api_sec = os.getenv('KRAKEN_API_SECRET')
 
-# Cryptos surveillées
-assets = ['XRP', 'LINK', 'SOL', 'AVAX', 'ADA', 'MATIC']
-fiat = 'EUR'
+api = API(key=api_key, secret=api_sec)
+k = KrakenAPI(api)
 
-# Paramètres achat
-montant_achat_eur = 5  # Montant par achat en EUR
-interval_scan = 600  # 10 minutes en secondes
+# Cryptos à trader
+cryptos = ['ADA', 'SOL', 'AVAX', 'LINK', 'XRP', 'MATIC']
+
+# Paramètres du bot
+achat_par_crypto_eur = 5.0  # montant d'achat par crypto en EUR
+stop_loss_percent = 5  # Pourcentage de stop-loss
 
 def get_balance(asset):
     try:
-        balance = api.query_private('Balance')
-        return float(balance['result'].get(asset, 0))
+        balances = k.get_account_balance()
+        balance = balances.loc[asset]['vol']
+        return float(balance)
     except Exception as e:
-        print(f"Erreur récupération solde pour {asset} : {e}")
-        return 0
+        print(f"Erreur récupération balance {asset} : {e}")
+        return 0.0
 
 def get_price(pair):
     try:
-        ticker = api.query_public('Ticker', {'pair': pair})
-        result = list(ticker['result'].values())[0]
-        price = float(result['c'][0])
-        return price
+        ohlc, _ = k.get_ohlc_data(pair, interval=5)
+        last_close = ohlc['close'].iloc[-1]
+        return float(last_close)
     except Exception as e:
-        print(f"Erreur récupération prix pour {pair} : {e}")
+        print(f"Erreur récupération prix {pair} : {e}")
         return None
 
-def buy_crypto(pair, volume):
+def buy_crypto(pair, amount_eur):
     try:
         response = api.query_private('AddOrder', {
             'pair': pair,
             'type': 'buy',
             'ordertype': 'market',
-            'volume': volume,
+            'volume': str(amount_eur),
+            'oflags': 'fcib'  # force maker pour réduire les frais
         })
-        print(f"Réponse achat : {response}")
-        return response
+        print(f"Réponse achat {pair}: {response}")
     except Exception as e:
-        print(f"Erreur commande achat pour {pair} : {e}")
-        return None
+        print(f"Erreur achat {pair} : {e}")
 
-def trading_loop():
-    print("MoneyMancer connecté à Kraken ! Début du trading automatique...")
-    while True:
-        for asset in assets:
-            print(f"\n--- Analyse de {asset}/{fiat} ---")
-            balance = get_balance(asset)
-            pair = f'X{asset}Z{fiat}' if asset != 'BTC' else f'XXBTZ{fiat}'
+print("MoneyMancer connecté à Kraken | Démarrage du trading automatique...")
+
+while True:
+    try:
+        for crypto in cryptos:
+            pair = f"{crypto}EUR"
+            print(f"\nAnalyse de {pair}...")
+
             price = get_price(pair)
-
             if price is None:
-                print(f"Prix de {asset} non récupéré, skip.")
                 continue
 
-            print(f"Prix actuel de {asset} : {price} {fiat}")
-            print(f"Solde disponible : {balance} {asset}")
+            balance_eur = get_balance('ZEUR')
+            balance_crypto = get_balance(f"X{crypto}")
 
-            if balance == 0:
-                # Définir volume à acheter
-                volume = montant_achat_eur / price
-                volume = round(volume, 6)  # 6 décimales max
+            print(f"Prix actuel : {price}€")
+            print(f"Solde EUR disponible : {balance_eur}€")
+            print(f"Solde {crypto} disponible : {balance_crypto}")
 
-                if volume > 0:
-                    print(f"Condition remplie : Achat de {asset} pour {montant_achat_eur} {fiat}")
-                    buy_crypto(pair, volume)
-                else:
-                    print("Montant calculé trop faible pour achat.")
+            # Achat si conditions remplies
+            if balance_eur >= achat_par_crypto_eur:
+                print(f"Condition remplie : Achat de {crypto} pour {achat_par_crypto_eur}€")
+                buy_crypto(pair, achat_par_crypto_eur)
             else:
-                print(f"Déjà des {asset} en portefeuille. Aucun achat effectué.")
+                print(f"Pas assez d'EUR pour acheter {crypto}.")
 
-        print(f"\n⏳ Pause de {interval_scan // 60} minutes avant nouveau scan...")
-        time.sleep(interval_scan)
+        print("\nPause de 10 minutes avant prochain scan...\n")
+        time.sleep(600)
 
-if __name__ == "__main__":
-    trading_loop()
+    except Exception as e:
+        print(f"Erreur globale : {e}")
+        time.sleep(60)
