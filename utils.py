@@ -1,76 +1,54 @@
 import krakenex
-import requests
-import os
 
-# Connexion à l'API Kraken
-api = krakenex.API()
-api_key = os.getenv('KRAKEN_API_KEY')
-api_secret = os.getenv('KRAKEN_API_SECRET')
-api.load_key = lambda *args, **kwargs: None
-api.key = api_key
-api.secret = api_secret
+# === Initialisation Kraken ===
+def init_api(key, secret):
+    return krakenex.API(key=key, secret=secret)
 
-# Obtenir le solde d’un actif
-def get_balance(asset):
+# === Obtenir le prix actuel d'une paire (ex: SOL/EUR) ===
+def get_price(api, pair):
     try:
-        response = api.query_private('Balance')['result']
-        balance = response.get(asset, 0)
-        return float(balance)
+        response = api.query_public('Ticker', {'pair': pair})
+        return float(response['result'][list(response['result'].keys())[0]]['c'][0])
     except Exception as e:
-        print(f"[ERREUR] get_balance : {e}")
-        return 0.0
-
-# Obtenir le prix actuel d’une paire
-def get_price(pair):
-    try:
-        url = f'https://api.kraken.com/0/public/Ticker?pair={pair}'
-        response = requests.get(url)
-        data = response.json()
-        price = list(data['result'].values())[0]['c'][0]
-        return float(price)
-    except Exception as e:
-        print(f"[ERREUR] get_price : {e}")
+        print(f"[ERREUR PRIX] {pair} : {e}")
         return None
 
-# Acheter une crypto
-def buy_crypto(pair, volume_eur):
+# === Acheter une crypto via ordre "market" ===
+def buy_crypto(api, pair, amount_eur):
     try:
-        price = get_price(pair)
-        if price is None:
-            print(f"[ERREUR] Prix introuvable pour {pair}")
-            return None
-
-        volume = round(volume_eur / price, 8)
-
-        order = {
+        response = api.query_private('AddOrder', {
             'pair': pair,
             'type': 'buy',
             'ordertype': 'market',
-            'volume': str(volume),
+            'volume': str(amount_eur),
             'oflags': 'viqc'
-        }
-
-        response = api.query_private('AddOrder', order)
-        print(f"[ACHAT] Réponse : {response}")
-        return response
+        })
+        print(f"[ACHAT] {pair} : {response}")
+        return True
     except Exception as e:
-        print(f"[ERREUR] buy_crypto : {e}")
-        return None
+        print(f"[ERREUR ACHAT] {pair} : {e}")
+        return False
 
-# Vendre une crypto
-def sell_crypto(pair, volume_crypto):
+# === Vendre une crypto via ordre "market" ===
+def sell_crypto(api, pair, volume):
     try:
-        order = {
+        response = api.query_private('AddOrder', {
             'pair': pair,
             'type': 'sell',
             'ordertype': 'market',
-            'volume': str(volume_crypto),
+            'volume': str(volume),
             'oflags': 'viqc'
-        }
-
-        response = api.query_private('AddOrder', order)
-        print(f"[VENTE] Réponse : {response}")
-        return response
+        })
+        print(f"[VENTE] {pair} : {response}")
+        return True
     except Exception as e:
-        print(f"[ERREUR] sell_crypto : {e}")
-        return None
+        print(f"[ERREUR VENTE] {pair} : {e}")
+        return False
+
+# === Obtenir tous les soldes disponibles sur le compte Kraken ===
+def get_balances(api):
+    try:
+        return api.query_private('Balance')['result']
+    except Exception as e:
+        print(f"[ERREUR SOLDE] : {e}")
+        return {}
