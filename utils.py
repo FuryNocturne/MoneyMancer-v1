@@ -6,18 +6,18 @@ import os
 api = krakenex.API()
 api_key = os.getenv('KRAKEN_API_KEY')
 api_secret = os.getenv('KRAKEN_API_SECRET')
-api.load_key = lambda *args, **kwargs: None  # Bypass du fichier de clé
+api.load_key = lambda *args, **kwargs: None
 api.key = api_key
 api.secret = api_secret
 
 # Obtenir le solde d’un actif
 def get_balance(asset):
     try:
-        response = api.query_private('Balance')
-        balance = response['result'].get(asset, 0)
+        response = api.query_private('Balance')['result']
+        balance = response.get(asset, 0)
         return float(balance)
     except Exception as e:
-        print(f"[ERREUR] get_balance ({asset}) : {e}")
+        print(f"[ERREUR] get_balance : {e}")
         return 0.0
 
 # Obtenir le prix actuel d’une paire
@@ -29,7 +29,7 @@ def get_price(pair):
         price = list(data['result'].values())[0]['c'][0]
         return float(price)
     except Exception as e:
-        print(f"[ERREUR] get_price ({pair}) : {e}")
+        print(f"[ERREUR] get_price : {e}")
         return None
 
 # Acheter une crypto
@@ -41,6 +41,7 @@ def buy_crypto(pair, volume_eur):
             return None
 
         volume = round(volume_eur / price, 8)
+
         order = {
             'pair': pair,
             'type': 'buy',
@@ -48,8 +49,9 @@ def buy_crypto(pair, volume_eur):
             'volume': str(volume),
             'oflags': 'viqc'
         }
+
         response = api.query_private('AddOrder', order)
-        print(f"Achat exécuté : {response}")
+        print(f"[ACHAT] Réponse : {response}")
         return response
     except Exception as e:
         print(f"[ERREUR] buy_crypto : {e}")
@@ -65,8 +67,9 @@ def sell_crypto(pair, volume_crypto):
             'volume': str(volume_crypto),
             'oflags': 'viqc'
         }
+
         response = api.query_private('AddOrder', order)
-        print(f"Vente exécutée : {response}")
+        print(f"[VENTE] Réponse : {response}")
         return response
     except Exception as e:
         print(f"[ERREUR] sell_crypto : {e}")
