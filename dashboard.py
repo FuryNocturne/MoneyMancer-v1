@@ -1,25 +1,26 @@
+import os
 import time
-import utils
+from utils import get_balances
 
-def afficher_dashboard(cryptos, achat_prix):
-    print("========== DASHBOARD ==========")
+def afficher_dashboard(api, cryptos, achat_prix, xp, mise_actuelle):
+    os.system('clear' if os.name == 'posix' else 'cls')
+
+    print("========== MONEYMANCER DASHBOARD ==========\n")
+    balances = get_balances(api)
+    solde_eur = float(balances.get('ZEUR', 0))
+
+    print(f"Solde disponible : {solde_eur:.2f} €")
+    print(f"XP actuelle      : {xp}")
+    print(f"Mise actuelle    : {mise_actuelle:.2f} €\n")
+
+    print("----- Portefeuille en suivi -----")
     for crypto in cryptos:
-        pair = f"{crypto}EUR"
-        prix_actuel = utils.get_price(pair)
-        balance = utils.get_balance(f'X{crypto}')
-        prix_achat = achat_prix.get(crypto, None)
+        code = f"X{crypto}"
+        if code in balances:
+            montant = float(balances[code])
+            prix = achat_prix.get(crypto, 'Non défini')
+            print(f"{crypto} → Quantité: {montant:.4f} | Prix d’achat: {prix if isinstance(prix, float) else prix}")
+        else:
+            print(f"{crypto} → Non acheté")
 
-        print(f"Crypto : {crypto}")
-        print(f" - Solde : {balance}")
-        if prix_actuel:
-            print(f" - Prix actuel : {prix_actuel:.2f}€")
-        if prix_achat:
-            variation = ((prix_actuel - prix_achat) / prix_achat) * 100
-            print(f" - Prix achat : {prix_achat:.2f}€")
-            print(f" - Variation : {variation:.2f}%")
-        print("-----------------------------")
-
-def start_dashboard(cryptos, achat_prix):
-    while True:
-        afficher_dashboard(cryptos, achat_prix)
-        time.sleep(600)
+    print("\n==========================================\n")
