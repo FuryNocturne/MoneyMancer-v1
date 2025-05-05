@@ -10,7 +10,7 @@ api = krakenex.API(key=KRAKEN_API_KEY, secret=KRAKEN_API_SECRET)
 print("MoneyMancer connecté à Kraken | Démarrage du trading automatique...")
 
 # Config
-cryptos = ['ADA', 'SOL', 'AVAX', 'LINK', 'XRP', 'MATIC']
+cryptos = ['BTC', 'ETH', 'BNB', 'SOL', 'ADA', 'AVAX', 'DOT', 'LINK', 'XRP', 'MATIC']
 min_purchase_eur = 5.0
 take_profit = 0.05   # +5%
 stop_loss = -0.05    # -5%
