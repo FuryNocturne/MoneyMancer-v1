@@ -1,4 +1,4 @@
-krakenex
+krakenex==2.1.0
 pandas
 matplotlib
-python-dotenv
+python-dotenv==1.0.1
