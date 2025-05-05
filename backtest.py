@@ -1,38 +1,29 @@
-import pandas as pd
-import random
+import matplotlib.pyplot as plt
 
-def simulate_backtest(cryptos, stop_loss_percent=5):
-    results = {}
-    for crypto in cryptos:
-        trades = 0
-        wins = 0
-        losses = 0
-        pnl = 0
-        
-        for day in range(365):
-            buy_price = random.uniform(10, 100)  # Simule un prix d'achat
-            sell_price = buy_price * random.uniform(0.90, 1.10)  # Simule la variation de prix
-            
-            trades += 1
-            if sell_price > buy_price:
-                pnl += (sell_price - buy_price)
-                wins += 1
-            elif sell_price <= buy_price * (1 - stop_loss_percent / 100):
-                pnl -= (buy_price * stop_loss_percent / 100)
-                losses += 1
-            else:
-                pnl += (sell_price - buy_price)
+def run_backtest(prix_historique, take_profit=0.05, stop_loss=-0.05):
+    position = None
+    prix_achat = 0
+    profits = []
 
-        results[crypto] = {
-            'Trades': trades,
-            'Wins': wins,
-            'Losses': losses,
-            'PnL': round(pnl, 2)
-        }
-    return results
+    for i, prix in enumerate(prix_historique):
+        if position is None:
+            position = prix
+            prix_achat = prix
+            continue
 
-def print_backtest_summary(results):
-    print("\n=== Résultats Backtest 1 An ===")
-    for crypto, data in results.items():
-        print(f"{crypto} | Trades: {data['Trades']} | Wins: {data['Wins']} | Losses: {data['Losses']} | PnL: {data['PnL']}€")
-    print("===============================")
+        variation = (prix - prix_achat) / prix_achat
+
+        if variation >= take_profit or variation <= stop_loss:
+            profits.append(variation)
+            position = None
+
+    rendement_total = sum(profits)
+    print(f"[BACKTEST] Rendement total : {rendement_total*100:.2f}%")
+
+    plt.plot(profits, label="Trades")
+    plt.title("Backtest des variations")
+    plt.xlabel("Trades")
+    plt.ylabel("Variation (%)")
+    plt.legend()
+    plt.grid()
+    plt.show()
