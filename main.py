@@ -1,44 +1,45 @@
 import time
-import krakenex
 import os
+import json
+import krakenex
 
-# Connexion Kraken API
+# === Connexion Kraken ===
 KRAKEN_API_KEY = os.getenv('KRAKEN_API_KEY')
 KRAKEN_API_SECRET = os.getenv('KRAKEN_API_SECRET')
-
 api = krakenex.API(key=KRAKEN_API_KEY, secret=KRAKEN_API_SECRET)
-print("MONEYMANCER EN MARCHE !")
 
-# Config
+print("\nMONEYMANCER EN MARCHE !\n")
+
+# === Paramètres ===
 cryptos = ['BTC', 'ETH', 'SOL', 'AVAX', 'LINK', 'XRP', 'MATIC', 'ADA']
-crypto_symbols = {
-    'BTC': 'XXBT',
-    'ETH': 'XETH',
-    'SOL': 'SOL',
-    'AVAX': 'AVAX',
-    'LINK': 'LINK',
-    'XRP': 'XXRP',
-    'MATIC': 'MATIC',
-    'ADA': 'ADA'
-}
 min_purchase_eur = 5.0
 take_profit = 0.05
 stop_loss = -0.05
 xp = 0
-achat_prix = {}
+achat_prix_file = 'achat_prix.json'
 
-# Obtenir le prix actuel
+# === Chargement des prix d'achat sauvegardés ===
+if os.path.exists(achat_prix_file):
+    with open(achat_prix_file, 'r') as f:
+        achat_prix = json.load(f)
+else:
+    achat_prix = {}
+
+# === Fonction: Enregistrement du prix d'achat ===
+def sauvegarder_achat_prix():
+    with open(achat_prix_file, 'w') as f:
+        json.dump(achat_prix, f)
+
+# === Fonction: Obtenir le prix actuel ===
 def get_price(pair):
     try:
         response = api.query_public('Ticker', {'pair': pair})
-        price = float(response['result'][list(response['result'].keys())[0]]['c'][0])
-        return price
+        return float(response['result'][list(response['result'].keys())[0]]['c'][0])
     except Exception as e:
         print(f"Erreur prix {pair} : {e}")
         return None
 
-# Achat
-
+# === Fonction: Acheter une crypto ===
 def buy_crypto(pair, amount_eur):
     try:
         response = api.query_private('AddOrder', {
@@ -48,14 +49,13 @@ def buy_crypto(pair, amount_eur):
             'volume': str(amount_eur),
             'oflags': 'viqc'
         })
-        print(f"[ACHAT OK] {pair} : {response}")
+        print(f"Achat {pair} : {response}")
         return True
     except Exception as e:
-        print(f"[ERREUR ACHAT] {pair} : {e}")
+        print(f"Erreur achat {pair} : {e}")
         return False
 
-# Vente
-
+# === Fonction: Vendre une crypto ===
 def sell_crypto(pair, volume):
     try:
         response = api.query_private('AddOrder', {
@@ -65,55 +65,83 @@ def sell_crypto(pair, volume):
             'volume': str(volume),
             'oflags': 'viqc'
         })
-        print(f"[VENTE OK] {pair} : {response}")
+        print(f"Vente {pair} : {response}")
         return True
     except Exception as e:
-        print(f"[ERREUR VENTE] {pair} : {e}")
+        print(f"Erreur vente {pair} : {e}")
         return False
 
-# Vérifier les positions
+# === Fonction: Analyse portefeuille ===
 def check_positions():
     global xp
     balances = api.query_private('Balance')['result']
-    print("===== MONEYMANCER DASHBOARD =====")
-    balance_eur = float(balances.get('ZEUR', 0))
-    print(f"Solde disponible : {balance_eur:.2f} ")
-    print(f"XP actuelle : {xp}")
-    print(f"Mise actuelle : {min_purchase_eur:.2f} ")
-    print("\n----- Portefeuille en suivi -----")
 
     for crypto in cryptos:
-        asset_code = crypto_symbols.get(crypto, crypto)
+        asset_code = f'X{crypto}' if f'X{crypto}' in balances else crypto
+        if asset_code not in balances:
+            continue
+
         quantity = float(balances.get(asset_code, 0))
-        pair = f"{crypto}EUR"
+        if quantity <= 0:
+            continue
 
-        if quantity > 0:
-            prix_achat = achat_prix.get(crypto)
-            prix_actuel = get_price(pair)
-            if prix_achat:
-                variation = (prix_actuel - prix_achat) / prix_achat
-                print(f"{crypto} ➔ Quantité: {quantity:.4f} | Prix d'achat: {prix_achat:.2f} | Variation: {variation*100:.2f}%")
-                if variation >= take_profit:
-                    print(f"[+ PROFIT] {crypto} vendu automatiquement")
-                    if sell_crypto(pair, quantity):
-                        xp += 1
-                        achat_prix.pop(crypto)
-                elif variation <= stop_loss:
-                    print(f"[- PERTE] {crypto} vendu automatiquement")
-                    if sell_crypto(pair, quantity):
-                        xp += 1
-                        achat_prix.pop(crypto)
-            else:
-                print(f"{crypto} ➔ Quantité: {quantity:.4f} | Prix d'achat: Non défini")
+        pair = f'{crypto}EUR'
+        price_now = get_price(pair)
+        if not price_now:
+            continue
+
+        prix_achat = achat_prix.get(crypto)
+        if not prix_achat:
+            print(f"{crypto} => Quantité: {quantity:.4f} | Prix d'achat: Non défini")
+            continue
+
+        variation = (price_now - prix_achat) / prix_achat
+
+        if variation >= take_profit:
+            print(f"[+ PROFIT] {crypto} : +{variation*100:.2f}% → Vente automatique")
+            if sell_crypto(pair, quantity):
+                xp += 1
+                achat_prix.pop(crypto)
+                sauvegarder_achat_prix()
+
+        elif variation <= stop_loss:
+            print(f"[- PERTE] {crypto} : {variation*100:.2f}% → Vente pour limiter les pertes")
+            if sell_crypto(pair, quantity):
+                xp += 1
+                achat_prix.pop(crypto)
+                sauvegarder_achat_prix()
         else:
-            print(f"{crypto} ➔ Non acheté")
+            print(f"{crypto} => Quantité: {quantity:.4f} | Prix d'achat: {prix_achat} | Actuel: {price_now:.4f}")
 
-# Boucle principale
+# === Boucle principale ===
 while True:
     try:
+        print("\n======= MONEYMANCER DASHBOARD =======")
+        balance_eur = float(api.query_private('Balance')['result'].get('ZEUR', 0))
+        print(f"Solde disponible : {balance_eur:.2f} €")
+        print(f"XP actuelle : {xp}")
+        print(f"Mise actuelle : {min_purchase_eur:.2f} €")
+
         check_positions()
-        print("\n[Pause de 10 minutes avant la prochaine analyse...]")
+
+        for crypto in cryptos:
+            if crypto in achat_prix:
+                continue
+            if balance_eur < min_purchase_eur:
+                continue
+
+            pair = f'{crypto}EUR'
+            print(f"Achat de {crypto} pour {min_purchase_eur}€ en cours...")
+            if buy_crypto(pair, min_purchase_eur):
+                price = get_price(pair)
+                if price:
+                    achat_prix[crypto] = price
+                    sauvegarder_achat_prix()
+                    print(f"Prix d'achat {crypto} : {price:.4f}")
+
+        print("[Pause de 10 minutes avant la prochaine analyse...]")
         time.sleep(600)
+
     except Exception as e:
-        print(f"[ERREUR GLOBALE] {e}")
+        print(f"[ERREUR GLOBALE] : {e}")
         time.sleep(60)
